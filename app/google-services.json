@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "983876871171",
+    "project_id": "one-switch-f4eb4",
+    "storage_bucket": "one-switch-f4eb4.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:983876871171:android:fc68124b68a801af419a36",
+        "android_client_info": {
+          "package_name": "com.oneswitch"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "983876871171-apkm6fp8ebjqlattsel21o68eqf7un5a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxj_pr8so3GRUXGE9rvf6MkZjZzAFsrEc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "983876871171-apkm6fp8ebjqlattsel21o68eqf7un5a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
