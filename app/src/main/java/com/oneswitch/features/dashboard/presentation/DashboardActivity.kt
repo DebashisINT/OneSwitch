@@ -41,6 +41,7 @@ import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.work.*
 import com.android.volley.AuthFailureError
 import com.android.volley.Response
 import com.android.volley.VolleyError
@@ -50,6 +51,7 @@ import com.bumptech.glide.request.RequestOptions
 import com.oneswitch.CustomStatic
 import com.oneswitch.MySingleton
 import com.oneswitch.R
+import com.oneswitch.WorkerService
 import com.oneswitch.app.*
 import com.oneswitch.app.NewFileUtils.browseDocuments
 import com.oneswitch.app.NewFileUtils.getExtension
@@ -237,6 +239,7 @@ import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.firebase.messaging.FirebaseMessaging
 import com.theartofdev.edmodo.cropper.CropImage
 import com.theartofdev.edmodo.cropper.CropImageView
@@ -252,6 +255,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.*
 import java.util.*
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 import kotlin.collections.ArrayList
 
 
@@ -284,6 +289,7 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
     }
 
     override fun loadFragment(mFragType: FragType, addToStack: Boolean, initializeObject: Any) {
+        AppUtils.contx = this
 
         drawerLayout.closeDrawers()
 
@@ -316,7 +322,7 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
         //AppDatabase.getDBInstance()?.shopActivityDao()?.trash2("2022-03-30","11984_1648452492858","12")
 
        //AppDatabase.getDBInstance()!!.shopActivityDao().trash("1")
-        println("load frag " + mFragType.toString() + "     " + AppUtils.minAccuracy.toString() + " " + Pref.SqMtrRateCalculationforQuotEuro);
+        println("load frag " + mFragType.toString() + "     " + AppUtils.minAccuracy.toString() + " " + Pref.user_id);
         if (addToStack) {
             mTransaction.add(R.id.frame_layout_container, getFragInstance(mFragType, initializeObject, true)!!, mFragType.toString())
             mTransaction.addToBackStack(mFragType.toString()).commitAllowingStateLoss()
@@ -384,7 +390,7 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
             @Throws(AuthFailureError::class)
             override fun getHeaders(): Map<String, String> {
                 val params: MutableMap<String, String> = HashMap()
-                params["Authorization"] = "key=AAAAIoWfCpc:APA91bEMOPyfjsyziPC1WYJiPHjzdmTQJmAOKP0fM24iXI9BgrmyhH4uLY6Jd-6Lpjp8mvSdpSp-zm20ApTOYQ3Ean4m6LicJ5CoECS_v5u2PUAwA8E6FLsu2ZC6_WxuSYnTTLzlUi4E"
+                params["Authorization"] = getString(R.string.firebase_key)
                 params["Content-Type"] = "application/json"
                 return params
             }
@@ -510,6 +516,7 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
     private lateinit var permission_info_TV: AppCustomTextView
     private lateinit var anydesk_info_TV: AppCustomTextView
     private lateinit var screen_record_info_TV: AppCustomTextView
+    private lateinit var check_custom_status_TV: AppCustomTextView
     private lateinit var micro_learning_TV: AppCustomTextView
 
     private lateinit var photo_registration: AppCustomTextView
@@ -939,7 +946,42 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
                         }
                     })
         }
+
+        if(!isWorkerRunning("workerTag")){
+            val constraint = Constraints.Builder()
+                .setRequiresCharging(false)
+                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                .setRequiresBatteryNotLow(true)
+                .build()
+            val request = PeriodicWorkRequest.Builder(WorkerService::class.java, 15, TimeUnit.MINUTES)
+                .setConstraints(constraint)
+                .addTag("workerTag")
+                .build()
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork("loc_worker", ExistingPeriodicWorkPolicy.KEEP, request)
+        }
+
     }
+
+    fun isWorkerRunning(tag:String):Boolean{
+        val workInstance = WorkManager.getInstance(this)
+        val status: ListenableFuture<List<WorkInfo>> = WorkManager.getInstance(this).getWorkInfosByTag(tag)
+        try{
+            var runningStatus:Boolean = false
+            val workInfoList:List<WorkInfo> = status.get()
+            for( obj:WorkInfo in workInfoList){
+                var state : WorkInfo.State =  obj.state
+                runningStatus = state ==WorkInfo.State.RUNNING || state ==WorkInfo.State.ENQUEUED
+            }
+            return runningStatus
+        }
+        catch (ex: ExecutionException){
+            return false
+        }
+        catch (ex:InterruptedException){
+            return false
+        }
+    }
+
 
     fun checkToShowHomeLocationAlert() {
         if (!Pref.isHomeLocAvailable) {
@@ -1909,6 +1951,7 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
         permission_info_TV = findViewById(R.id.permission_info_TV)
         anydesk_info_TV = findViewById(R.id.anydesk_info_TV)
         screen_record_info_TV = findViewById(R.id.screen_record_info_TV)
+        check_custom_status_TV = findViewById(R.id.check_custom_status_TV)
         micro_learning_TV = findViewById(R.id.micro_learning_TV)
 
         photo_registration = findViewById(R.id.photo_registration)
@@ -1990,6 +2033,7 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
         permission_info_TV.setOnClickListener(this)
         anydesk_info_TV.setOnClickListener(this)
         screen_record_info_TV.setOnClickListener(this)
+        check_custom_status_TV.setOnClickListener(this)
         micro_learning_TV.setOnClickListener(this)
 
         photo_registration.setOnClickListener(this)
@@ -3325,6 +3369,9 @@ class DashboardActivity : BaseActivity(), View.OnClickListener, BaseNavigation, 
                         DashboardFragment.ll_recorder_root.visibility=View.VISIBLE
                     }
                 }*/
+            }
+            R.id.check_custom_status_TV->{
+                Toaster.msgShort(this,isWorkerRunning("workerTag").toString())
             }
 
             R.id.micro_learning_TV -> {

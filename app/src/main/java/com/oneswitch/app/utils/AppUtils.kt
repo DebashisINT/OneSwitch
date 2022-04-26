@@ -62,6 +62,9 @@ import java.util.regex.Pattern
  */
 class AppUtils {
     companion object {
+        var contx:Context?= null
+
+
         var sImagePath: String? = null
         var isRevisit: Boolean? = false
         var isOnReceived = false

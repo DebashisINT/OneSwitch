@@ -6,6 +6,8 @@ import androidx.room.PrimaryKey;
 
 import static com.oneswitch.app.AppConstant.SHOP_TABLE;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * Created by sayantan.sarkar on 2/11/17.
  */

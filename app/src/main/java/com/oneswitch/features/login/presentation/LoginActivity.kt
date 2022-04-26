@@ -36,6 +36,8 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.oneswitch.CustomStatic
 import com.oneswitch.R
 import com.oneswitch.app.*
@@ -132,6 +134,7 @@ import com.oneswitch.widgets.AppCustomEditText
 import com.oneswitch.widgets.AppCustomTextView
 import com.elvishew.xlog.XLog
 import com.google.android.material.textfield.TextInputEditText
+import com.google.common.util.concurrent.ListenableFuture
 import com.theartofdev.edmodo.cropper.CropImage
 import com.themechangeapp.pickimage.PermissionHelper
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -141,6 +144,7 @@ import org.jetbrains.anko.doAsync
 import org.jetbrains.anko.uiThread
 import java.io.*
 import java.util.*
+import java.util.concurrent.ExecutionException
 import kotlin.collections.ArrayList
 
 
@@ -241,7 +245,28 @@ class LoginActivity : BaseActivity(), View.OnClickListener, LocationListener {
             getConfigFetchApi()
         },100)*/
 
+        WorkManager.getInstance(this).cancelAllWork()
+        WorkManager.getInstance(this).cancelAllWorkByTag("workerTag")
+    }
 
+    fun isWorkerRunning(tag:String):Boolean{
+        val workInstance = WorkManager.getInstance(this)
+        val status: ListenableFuture<List<WorkInfo>> = WorkManager.getInstance(this).getWorkInfosByTag(tag)
+        try{
+            var runningStatus:Boolean = false
+            val workInfoList:List<WorkInfo> = status.get()
+            for( obj: WorkInfo in workInfoList){
+                var state : WorkInfo.State =  obj.state
+                runningStatus = state == WorkInfo.State.RUNNING || state == WorkInfo.State.ENQUEUED
+            }
+            return runningStatus
+        }
+        catch (ex: ExecutionException){
+            return false
+        }
+        catch (ex:InterruptedException){
+            return false
+        }
     }
 
 
@@ -849,49 +874,56 @@ class LoginActivity : BaseActivity(), View.OnClickListener, LocationListener {
     }
 
     private fun getAreaListApi() {
-        val repository = AreaListRepoProvider.provideAreaListRepository()
-        progress_wheel.spin()
-        BaseActivity.compositeDisposable.add(
-                repository.areaList(Pref.profile_city, "")
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribeOn(Schedulers.io())
-                        .subscribe({ result ->
-                            val response = result as AreaListResponseModel
-                            if (response.status == NetworkConstant.SUCCESS) {
-                                val list = response.area_list
+        if(Pref.isAreaVisible) {
+            XLog.d("API_Optimization getAreaListApi Login : enable " + "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name)
+            val repository = AreaListRepoProvider.provideAreaListRepository()
+            progress_wheel.spin()
+            BaseActivity.compositeDisposable.add(
+                    repository.areaList(Pref.profile_city, "")
+                            .observeOn(AndroidSchedulers.mainThread())
+                            .subscribeOn(Schedulers.io())
+                            .subscribe({ result ->
+                                val response = result as AreaListResponseModel
+                                if (response.status == NetworkConstant.SUCCESS) {
+                                    val list = response.area_list
 
-                                if (list != null && list.isNotEmpty()) {
+                                    if (list != null && list.isNotEmpty()) {
 
-                                    doAsync {
+                                        doAsync {
 
-                                        list.forEach {
-                                            val area = AreaListEntity()
-                                            AppDatabase.getDBInstance()?.areaListDao()?.insert(area.apply {
-                                                area_id = it.area_id
-                                                area_name = it.area_name
-                                            })
+                                            list.forEach {
+                                                val area = AreaListEntity()
+                                                AppDatabase.getDBInstance()?.areaListDao()?.insert(area.apply {
+                                                    area_id = it.area_id
+                                                    area_name = it.area_name
+                                                })
+                                            }
+
+                                            uiThread {
+                                                progress_wheel.stopSpinning()
+                                                checkToCallShopTypeApi()
+                                            }
                                         }
-
-                                        uiThread {
-                                            progress_wheel.stopSpinning()
-                                            checkToCallShopTypeApi()
-                                        }
+                                    } else {
+                                        progress_wheel.stopSpinning()
+                                        checkToCallShopTypeApi()
                                     }
                                 } else {
                                     progress_wheel.stopSpinning()
                                     checkToCallShopTypeApi()
                                 }
-                            } else {
-                                progress_wheel.stopSpinning()
-                                checkToCallShopTypeApi()
-                            }
 
-                        }, { error ->
-                            progress_wheel.stopSpinning()
-                            error.printStackTrace()
-                            checkToCallShopTypeApi()
-                        })
-        )
+                            }, { error ->
+                                progress_wheel.stopSpinning()
+                                error.printStackTrace()
+                                checkToCallShopTypeApi()
+                            })
+            )
+        }
+        else{
+            XLog.d("API_Optimization getAreaListApi Login : disable " +  "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name )
+            checkToCallShopTypeApi()
+        }
     }
 
     private fun checkToCallShopTypeApi() {
@@ -1443,154 +1475,161 @@ class LoginActivity : BaseActivity(), View.OnClickListener, LocationListener {
     }
 
     private fun geQuotApi() {
-        progress_wheel.spin()
-        val repository = QuotationRepoProvider.provideBSListRepository()
-        BaseActivity.compositeDisposable.add(
-                repository.getQuotList()
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribeOn(Schedulers.io())
-                        .subscribe({ result ->
-                            val response = result as QuotationListResponseModel
-                            XLog.d("GET QUOT DATA : " + "RESPONSE : " + response.status + "\n" + "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name + ",MESSAGE : " + response.message)
-                            if (response.status == NetworkConstant.SUCCESS) {
+        if(Pref.isQuotationShow) {
+            XLog.d("API_Optimization geQuotApi Login : enable " + "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name)
+            progress_wheel.spin()
+            val repository = QuotationRepoProvider.provideBSListRepository()
+            BaseActivity.compositeDisposable.add(
+                    repository.getQuotList()
+                            .observeOn(AndroidSchedulers.mainThread())
+                            .subscribeOn(Schedulers.io())
+                            .subscribe({ result ->
+                                val response = result as QuotationListResponseModel
+                                XLog.d("GET QUOT DATA : " + "RESPONSE : " + response.status + "\n" + "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name + ",MESSAGE : " + response.message)
+                                if (response.status == NetworkConstant.SUCCESS) {
 
-                                if (response.quot_list != null && response.quot_list!!.isNotEmpty()) {
+                                    if (response.quot_list != null && response.quot_list!!.isNotEmpty()) {
 
-                                    doAsync {
+                                        doAsync {
 
-                                        response.quot_list?.forEach {
-                                            val quotEntity = QuotationEntity()
-                                            AppDatabase.getDBInstance()?.quotDao()?.insert(quotEntity.apply {
-                                                quo_id = it.quo_id
-                                                quo_no = it.quo_no
+                                            response.quot_list?.forEach {
+                                                val quotEntity = QuotationEntity()
+                                                AppDatabase.getDBInstance()?.quotDao()?.insert(quotEntity.apply {
+                                                    quo_id = it.quo_id
+                                                    quo_no = it.quo_no
 
-                                                date = it.date
+                                                    date = it.date
 
-                                                hypothecation = if (!TextUtils.isEmpty(it.hypothecation))
-                                                    it.hypothecation
-                                                else
-                                                    ""
-                                                account_no = if (!TextUtils.isEmpty(it.account_no))
-                                                    it.account_no
-                                                else
-                                                    ""
+                                                    hypothecation = if (!TextUtils.isEmpty(it.hypothecation))
+                                                        it.hypothecation
+                                                    else
+                                                        ""
+                                                    account_no = if (!TextUtils.isEmpty(it.account_no))
+                                                        it.account_no
+                                                    else
+                                                        ""
 
-                                                model_id = it.model_id
-                                                bs_id = it.bs_id
+                                                    model_id = it.model_id
+                                                    bs_id = it.bs_id
 
-                                                gearbox = if (!TextUtils.isEmpty(it.gearbox))
-                                                    it.gearbox
-                                                else
-                                                    ""
+                                                    gearbox = if (!TextUtils.isEmpty(it.gearbox))
+                                                        it.gearbox
+                                                    else
+                                                        ""
 
-                                                number1 = if (!TextUtils.isEmpty(it.number1))
-                                                    it.number1
-                                                else
-                                                    ""
+                                                    number1 = if (!TextUtils.isEmpty(it.number1))
+                                                        it.number1
+                                                    else
+                                                        ""
 
-                                                value1 = if (!TextUtils.isEmpty(it.value1))
-                                                    it.value1
-                                                else
-                                                    ""
+                                                    value1 = if (!TextUtils.isEmpty(it.value1))
+                                                        it.value1
+                                                    else
+                                                        ""
 
-                                                value2 = if (!TextUtils.isEmpty(it.value2))
-                                                    it.value2
-                                                else
-                                                    ""
+                                                    value2 = if (!TextUtils.isEmpty(it.value2))
+                                                        it.value2
+                                                    else
+                                                        ""
 
-                                                tyres1 = if (!TextUtils.isEmpty(it.tyres1))
-                                                    it.tyres1
-                                                else
-                                                    ""
+                                                    tyres1 = if (!TextUtils.isEmpty(it.tyres1))
+                                                        it.tyres1
+                                                    else
+                                                        ""
 
-                                                number2 = if (!TextUtils.isEmpty(it.number2))
-                                                    it.number2
-                                                else
-                                                    ""
+                                                    number2 = if (!TextUtils.isEmpty(it.number2))
+                                                        it.number2
+                                                    else
+                                                        ""
 
-                                                value3 = if (!TextUtils.isEmpty(it.value3))
-                                                    it.value3
-                                                else
-                                                    ""
+                                                    value3 = if (!TextUtils.isEmpty(it.value3))
+                                                        it.value3
+                                                    else
+                                                        ""
 
-                                                value4 = if (!TextUtils.isEmpty(it.value4))
-                                                    it.value4
-                                                else
-                                                    ""
+                                                    value4 = if (!TextUtils.isEmpty(it.value4))
+                                                        it.value4
+                                                    else
+                                                        ""
 
-                                                tyres2 = if (!TextUtils.isEmpty(it.tyres2))
-                                                    it.tyres2
-                                                else
-                                                    ""
+                                                    tyres2 = if (!TextUtils.isEmpty(it.tyres2))
+                                                        it.tyres2
+                                                    else
+                                                        ""
 
-                                                amount = if (!TextUtils.isEmpty(it.amount))
-                                                    it.amount
-                                                else
-                                                    ""
+                                                    amount = if (!TextUtils.isEmpty(it.amount))
+                                                        it.amount
+                                                    else
+                                                        ""
 
-                                                discount = if (!TextUtils.isEmpty(it.discount))
-                                                    it.discount
-                                                else
-                                                    ""
+                                                    discount = if (!TextUtils.isEmpty(it.discount))
+                                                        it.discount
+                                                    else
+                                                        ""
 
-                                                cgst = if (!TextUtils.isEmpty(it.cgst))
-                                                    it.cgst
-                                                else
-                                                    ""
+                                                    cgst = if (!TextUtils.isEmpty(it.cgst))
+                                                        it.cgst
+                                                    else
+                                                        ""
 
-                                                sgst = if (!TextUtils.isEmpty(it.sgst))
-                                                    it.sgst
-                                                else
-                                                    ""
+                                                    sgst = if (!TextUtils.isEmpty(it.sgst))
+                                                        it.sgst
+                                                    else
+                                                        ""
 
-                                                tcs = if (!TextUtils.isEmpty(it.tcs))
-                                                    it.tcs
-                                                else
-                                                    ""
+                                                    tcs = if (!TextUtils.isEmpty(it.tcs))
+                                                        it.tcs
+                                                    else
+                                                        ""
 
-                                                insurance = if (!TextUtils.isEmpty(it.insurance))
-                                                    it.insurance
-                                                else
-                                                    ""
+                                                    insurance = if (!TextUtils.isEmpty(it.insurance))
+                                                        it.insurance
+                                                    else
+                                                        ""
 
-                                                net_amount = if (!TextUtils.isEmpty(it.net_amount))
-                                                    it.net_amount
-                                                else
-                                                    ""
+                                                    net_amount = if (!TextUtils.isEmpty(it.net_amount))
+                                                        it.net_amount
+                                                    else
+                                                        ""
 
-                                                remarks = if (!TextUtils.isEmpty(it.remarks))
-                                                    it.remarks
-                                                else
-                                                    ""
+                                                    remarks = if (!TextUtils.isEmpty(it.remarks))
+                                                        it.remarks
+                                                    else
+                                                        ""
 
-                                                shop_id = it.shop_id
-                                                isUploaded = true
-                                            })
+                                                    shop_id = it.shop_id
+                                                    isUploaded = true
+                                                })
+                                            }
+
+                                            uiThread {
+                                                progress_wheel.stopSpinning()
+                                                checkToCallTypeApi()
+                                            }
                                         }
-
-                                        uiThread {
-                                            progress_wheel.stopSpinning()
-                                            checkToCallTypeApi()
-                                        }
+                                    } else {
+                                        progress_wheel.stopSpinning()
+                                        checkToCallTypeApi()
                                     }
+
+
                                 } else {
                                     progress_wheel.stopSpinning()
                                     checkToCallTypeApi()
                                 }
 
-
-                            } else {
+                            }, { error ->
                                 progress_wheel.stopSpinning()
+                                XLog.d("GET QUOT DATA : " + "ERROR : " + "\n" + "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name + ",MESSAGE : " + error.localizedMessage)
+                                error.printStackTrace()
                                 checkToCallTypeApi()
-                            }
-
-                        }, { error ->
-                            progress_wheel.stopSpinning()
-                            XLog.d("GET QUOT DATA : " + "ERROR : " + "\n" + "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name + ",MESSAGE : " + error.localizedMessage)
-                            error.printStackTrace()
-                            checkToCallTypeApi()
-                        })
-        )
+                            })
+            )
+        }
+        else{
+            XLog.d("API_Optimization geQuotApi Login : disable " +  "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name )
+            checkToCallTypeApi()
+        }
     }
 
     private fun checkToCallTypeApi() {
@@ -2053,11 +2092,40 @@ class LoginActivity : BaseActivity(), View.OnClickListener, LocationListener {
     }
 
     private fun checkToCallChemistVisitApi() {
-        val list = AppDatabase.getDBInstance()!!.addChemistDao().getAll()
-        if (list != null && list.isNotEmpty())
-            checkToCallDoctorVisitApi()
-        else
-            getChemistVisitListApi()
+        var isChemistTypeAvailable:Boolean = false
+        var isDoctorTypeAvaliable:Boolean = false
+        doAsync {
+            val list = AppDatabase.getDBInstance()!!.shopTypeDao().getAll()
+            for (i in list.indices) {
+                if(list[i].shoptype_name!!.contains("Chemist",ignoreCase = true)){
+                    isChemistTypeAvailable = true
+                    break
+                }
+                else if(list[i].shoptype_name!!.contains("Doctor",ignoreCase = true)){
+                    isDoctorTypeAvaliable = true
+                    break
+                }
+            }
+            uiThread {
+                if(isChemistTypeAvailable){
+                    val list = AppDatabase.getDBInstance()!!.addChemistDao().getAll()
+                    if (list != null && list.isNotEmpty()){
+                        if(isDoctorTypeAvaliable)
+                            checkToCallDoctorVisitApi()
+                        else
+                            checkToCallStockListApi()
+                    } else
+                        getChemistVisitListApi()
+                }
+                else if(isDoctorTypeAvaliable){
+                    checkToCallDoctorVisitApi()
+                }
+                else{
+                    checkToCallStockListApi()
+                }
+
+            }
+        }
     }
 
     private fun getChemistVisitListApi() {
@@ -6847,6 +6915,7 @@ class LoginActivity : BaseActivity(), View.OnClickListener, LocationListener {
         }
 
     }
+
 
     /*20-12-2021*/
    private fun getReturnList() {

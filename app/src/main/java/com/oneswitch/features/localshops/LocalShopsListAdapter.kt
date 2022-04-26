@@ -46,7 +46,7 @@ import kotlinx.android.synthetic.main.inflate_nearby_shops.view.tv_shop_contact_
  */
 
 class LocalShopsListAdapter(context: Context, list: List<AddShopDBModelEntity>, val listener: LocalShopListClickListener,private val getSize: (Int) -> Unit) :
-    RecyclerView.Adapter<LocalShopsListAdapter.MyViewHolder>(), Filterable {
+        RecyclerView.Adapter<LocalShopsListAdapter.MyViewHolder>(), Filterable {
     private val layoutInflater: LayoutInflater
     private var context: Context
     private var mList: ArrayList<AddShopDBModelEntity>
@@ -401,15 +401,16 @@ class LocalShopsListAdapter(context: Context, list: List<AddShopDBModelEntity>, 
             val results = FilterResults()
             filterList?.clear()
             tempList?.indices!!
-                .filter { tempList?.get(it)?.shopName?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
-                        tempList?.get(it)?.pinCode?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
-                        tempList?.get(it)?.ownerName?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
-                        tempList?.get(it)?.ownerContactNumber?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
-                        //AppDatabase.getDBInstance()!!.addShopEntryDao().getLandNumber(tempList?.get(it)?.landline_number!!).toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
-                        //tempList?.get(it)?.landline_number?.toLowerCase()?.contains(land)!! ||
-                        AppDatabase.getDBInstance()!!.shopTypeDao().getShopNameById(tempList?.get(it)?.type!!).toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
-                        tempList?.get(it)?.address?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!}
-                .forEach { filterList?.add(tempList?.get(it)!!) }
+                    .filter { tempList?.get(it)?.shopName?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
+                            tempList?.get(it)?.pinCode?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
+                            tempList?.get(it)?.ownerName?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
+                            tempList?.get(it)?.ownerContactNumber?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
+                            //AppDatabase.getDBInstance()!!.addShopEntryDao().getLandNumber(tempList?.get(it)?.landline_number!!).toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
+                            //tempList?.get(it)?.landline_number?.toLowerCase()?.contains(land)!! ||
+                            //AppDatabase.getDBInstance()!!.shopTypeDao().getShopNameById(tempList?.get(it)?.type!!).toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!  ||
+                            tempList?.get(it)?.address?.toLowerCase()?.contains(p0?.toString()?.toLowerCase()!!)!!
+                    }
+                    .forEach { filterList?.add(tempList?.get(it)!!) }
 
 
             results.values = filterList

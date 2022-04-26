@@ -16,6 +16,14 @@ interface BillingDao {
     @Query("SELECT * FROM " + AppConstant.BILLING_TABLE + " where order_id=:order_id ORDER BY invoice_date DESC")
     fun getDataOrderIdWise(order_id: String): List<BillingEntity>
 
+
+    @Query("SELECT invoice_no FROM  billing_list where order_id=:order_id ")
+    fun getInvoice(order_id: String): String
+
+
+    @Query("SELECT invoice_date FROM billing_list where order_id=:order_id")
+    fun getInvoiceDate(order_id: String): String
+
     @Query("SELECT * FROM " + AppConstant.BILLING_TABLE + " where isUploaded=:isUploaded")
     fun getDataSyncWise(isUploaded: Boolean): List<BillingEntity>
 

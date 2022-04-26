@@ -18,6 +18,7 @@ import android.widget.RelativeLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.content.FileProvider
+import androidx.work.WorkManager
 import com.oneswitch.CustomConstants
 import com.elvishew.xlog.XLog
 
@@ -5280,6 +5281,13 @@ class LogoutSyncFragment : BaseFragment(), View.OnClickListener {
 
         SendBrod.stopBrod(mContext)
 
+        try{
+            WorkManager.getInstance(mContext).cancelAllWork()
+            WorkManager.getInstance(mContext).cancelAllWorkByTag("workerTag")
+        }catch (ex:Exception){
+            ex.printStackTrace()
+        }
+
         if (Pref.willActivityShow) {
             val list = AppDatabase.getDBInstance()?.activDao()?.getDataSyncWise(false)
             if (list != null && list.isNotEmpty()) {
@@ -6877,7 +6885,7 @@ class LogoutSyncFragment : BaseFragment(), View.OnClickListener {
       val fileUrl = Uri.parse(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "xoneswitchlogsample/log").path);
       val file = File(fileUrl.path)
       if (!file.exists()) {
-          return
+          checkToCallActivity()
       }
       val uri: Uri = FileProvider.getUriForFile(mContext, mContext!!.applicationContext.packageName.toString() + ".provider", file)
       try{
